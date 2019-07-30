@@ -63,9 +63,11 @@ fun Creep.build(assignedRoom: Room = this.room) {
 fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room) {
     if (carry.energy < carryCapacity) {
         val sources = fromRoom.find(FIND_SOURCES)
-        if (harvest(sources[0]) == ERR_NOT_IN_RANGE) {
+        if(pos.inRangeTo(sources[0].pos,1))
+            harvest(sources[0])
+        else
             moveTo(sources[0].pos)
-        }
+
     } else {
         val targets = toRoom.find(FIND_MY_STRUCTURES)
                 .filter { (it.structureType == STRUCTURE_EXTENSION || it.structureType == STRUCTURE_SPAWN) }

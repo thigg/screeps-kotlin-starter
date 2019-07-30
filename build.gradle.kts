@@ -1,3 +1,5 @@
+import jdk.nashorn.internal.runtime.Debug.id
+import jdk.tools.jlink.resources.plugins
 import org._10ne.gradle.rest.RestTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
 import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
@@ -17,6 +19,7 @@ dependencies {
     implementation("ch.delconte.screeps-kotlin:screeps-kotlin-types:1.3.0")
     implementation(kotlin("stdlib-js"))
     testImplementation(kotlin("test-js"))
+    testImplementation(kotlin("org.junit"))
 }
 
 val screepsUser: String? by project

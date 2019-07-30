@@ -6,62 +6,70 @@ import screeps.api.structures.StructureSpawn
 import screeps.utils.isEmpty
 import screeps.utils.unsafe.delete
 import screeps.utils.unsafe.jsObject
+import tasker.Tasker
+import tasker.TaskerTask
 
 fun gameLoop() {
     val mainSpawn: StructureSpawn = Game.spawns.values.firstOrNull() ?: return
 
     //delete memories of creeps that have passed away
-    houseKeeping(Game.creeps)
+    Tasker.addTask(TaskerTask("housekeeping", 21.0) { houseKeeping(Game.creeps) })
 
     //make sure we have at least some creeps
-    spawnCreeps(Game.creeps.values, mainSpawn)
+    Tasker.addTask(TaskerTask("spawnCreeps", 1.0) { spawnCreeps(Game.creeps.values, mainSpawn) })
 
-    // build a few extensions so we can have 550 energy
-    val controller = mainSpawn.room.controller
-    if (controller != null && controller.level >= 2) {
-        when (controller.room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_EXTENSION }) {
-            0 -> controller.room.createConstructionSite(29, 27, STRUCTURE_EXTENSION)
-            1 -> controller.room.createConstructionSite(28, 27, STRUCTURE_EXTENSION)
-            2 -> controller.room.createConstructionSite(27, 27, STRUCTURE_EXTENSION)
-            3 -> controller.room.createConstructionSite(26, 27, STRUCTURE_EXTENSION)
-            4 -> controller.room.createConstructionSite(25, 27, STRUCTURE_EXTENSION)
-            5 -> controller.room.createConstructionSite(24, 27, STRUCTURE_EXTENSION)
-            6 -> controller.room.createConstructionSite(23, 27, STRUCTURE_EXTENSION)
+    Tasker.addTask(TaskerTask("buildExtensions", 10.0) {
+        // build a few extensions so we can have 550 energy
+        val controller = mainSpawn.room.controller
+        if (controller != null && controller.level >= 2) {
+            when (controller.room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_EXTENSION }) {
+                0 -> controller.room.createConstructionSite(29, 27, STRUCTURE_EXTENSION)
+                1 -> controller.room.createConstructionSite(28, 27, STRUCTURE_EXTENSION)
+                2 -> controller.room.createConstructionSite(27, 27, STRUCTURE_EXTENSION)
+                3 -> controller.room.createConstructionSite(26, 27, STRUCTURE_EXTENSION)
+                4 -> controller.room.createConstructionSite(25, 27, STRUCTURE_EXTENSION)
+                5 -> controller.room.createConstructionSite(24, 27, STRUCTURE_EXTENSION)
+                6 -> controller.room.createConstructionSite(23, 27, STRUCTURE_EXTENSION)
+            }
         }
-    }
+    })
 
-    //spawn a big creep if we have plenty of energy
-    for ((_, room) in Game.rooms) {
-        if (room.energyAvailable >= 550) {
-            mainSpawn.spawnCreep(
-                    arrayOf(
-                            WORK,
-                            WORK,
-                            WORK,
-                            WORK,
-                            CARRY,
-                            MOVE,
-                            MOVE
-                    ),
-                    "HarvesterBig_${Game.time}",
-                    options {
-                        memory = jsObject<CreepMemory> {
-                            this.role = Role.HARVESTER
+    Tasker.addTask(TaskerTask("spawnBigCreeps", 15.0) {
+        //spawn a big creep if we have plenty of energy
+        for ((_, room) in Game.rooms) {
+            if (room.energyAvailable >= 550) {
+                mainSpawn.spawnCreep(
+                        arrayOf(
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                CARRY,
+                                MOVE,
+                                MOVE
+                        ),
+                        "HarvesterBig_${Game.time}",
+                        options {
+                            memory = jsObject<CreepMemory> {
+                                this.role = Role.HARVESTER
+                            }
                         }
-                    }
-            )
-            console.log("hurray!")
+                )
+                console.log("hurray!")
+            }
         }
-    }
-
-    for ((_, creep) in Game.creeps) {
-        when (creep.memory.role) {
-            Role.HARVESTER -> creep.harvest()
-            Role.BUILDER -> creep.build()
-            Role.UPGRADER -> creep.upgrade(mainSpawn.room.controller!!)
-            else -> creep.pause()
+    })
+    Tasker.addTask(TaskerTask("runCreeps", 20.0) {
+        for ((_, creep) in Game.creeps) {
+            when (creep.memory.role) {
+                Role.HARVESTER -> creep.harvest()
+                Role.BUILDER -> creep.build()
+                Role.UPGRADER -> creep.upgrade(mainSpawn.room.controller!!)
+                else -> creep.pause()
+            }
         }
-    }
+    })
+    Tasker.runUntilLimit()
 
 }
 
