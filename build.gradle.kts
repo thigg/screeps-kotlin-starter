@@ -1,13 +1,11 @@
-import jdk.nashorn.internal.runtime.Debug.id
-import jdk.tools.jlink.resources.plugins
 import org._10ne.gradle.rest.RestTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsDce
 import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 import java.util.*
 
 plugins {
-    id("kotlin2js") version "1.3.31"
-    id("kotlin-dce-js") version "1.3.31"
+    kotlin("js") version "1.3.40"
+    id("kotlin-dce-js") version "1.3.40"
     id("org.tenne.rest") version "0.4.2"
 }
 
@@ -19,7 +17,6 @@ dependencies {
     implementation("ch.delconte.screeps-kotlin:screeps-kotlin-types:1.3.0")
     implementation(kotlin("stdlib-js"))
     testImplementation(kotlin("test-js"))
-    testImplementation(kotlin("org.junit"))
 }
 
 val screepsUser: String? by project
@@ -33,7 +30,7 @@ val host = screepsHost ?: "https://screeps.com"
 fun String.encodeBase64() = Base64.getEncoder().encodeToString(this.toByteArray())
 
 tasks {
-    "compileKotlin2Js"(Kotlin2JsCompile::class) {
+    "compileKotlinJs"(Kotlin2JsCompile::class) {
         kotlinOptions {
             moduleKind = "commonjs"
             outputFile = "${buildDir}/screeps/main.js"
@@ -42,7 +39,7 @@ tasks {
         }
     }
 
-    "runDceKotlinJs"(KotlinJsDce::class) {
+    "runDceKotlin"(KotlinJsDce::class) {
         keep("main.loop")
         dceOptions.devMode = false
     }
