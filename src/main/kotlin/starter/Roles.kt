@@ -3,7 +3,6 @@ package starter
 import screeps.api.*
 import screeps.api.structures.Structure
 import screeps.api.structures.StructureController
-import screeps.api.structures.StructureSpawn
 import kotlin.math.min
 
 
@@ -16,7 +15,7 @@ enum class Role {
 }
 
 fun Creep.upgrade(controller: StructureController) {
-    energFSM()
+    energyFSM()
     if (memory.refillEnergy) {
         goForEnergy()
     } else {
@@ -27,7 +26,7 @@ fun Creep.upgrade(controller: StructureController) {
     }
 }
 
-private fun Creep.energFSM() {
+private fun Creep.energyFSM() {
     if (carry.energy == carryCapacity)
         memory.refillEnergy = false
     if (carry.energy == 0) memory.refillEnergy = true
@@ -97,7 +96,7 @@ fun Creep.pause() {
 }
 
 fun Creep.build(assignedRoom: Room = this.room) {
-    energFSM()
+    energyFSM()
 
     if (!memory.refillEnergy) {
         val targets = assignedRoom.find(FIND_MY_CONSTRUCTION_SITES)
@@ -105,6 +104,8 @@ fun Creep.build(assignedRoom: Room = this.room) {
             if (build(targets[0]) == ERR_NOT_IN_RANGE) {
                 moveTo(targets[0].pos)
             }
+        } else {
+            room.controller?.run(::upgrade)
         }
     } else {
         goForEnergy()
@@ -115,8 +116,23 @@ fun Room.isOurs(): Boolean {
     return Game.spawns.values.find { spawn -> spawn.room == this } != null
 }
 
+fun Creep.freeStorage():Int{
+    return carryCapacity-carry.energy
+}
+
+fun Creep.transferEnergy(creep:Creep):ScreepsReturnCode{
+    return transfer(creep, RESOURCE_ENERGY, min(freeStorage(),creep.freeStorage()))
+}
+
 fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room): Unit {
     //if(!room.isOurs())harvest(room,Game.spawns)
+    if(carry.energy > 0){
+        val targets = pos.findInRange(FIND_MY_CREEPS,1, options { filter = {other -> other.memory.role != Role.HARVESTER && other.memory.refillEnergy && other.freeStorage() > 4 &&   carry.energy > other.freeStorage()} })
+        if(targets.size > 0)
+            if(transferEnergy(targets[0]) == OK)
+                return
+            else console.log("Error! Could not transfer Energy")
+    }
     if (carry.energy < carryCapacity) {
         val res = pos.findInRange(FIND_SOURCES, 1)
         if (res.isNotEmpty())
@@ -133,12 +149,12 @@ fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room): Unit {
                 .filter { (it.structureType == STRUCTURE_EXTENSION || it.structureType == STRUCTURE_SPAWN) }
                 .filter { it.unsafeCast<EnergyContainer>().energy < it.unsafeCast<EnergyContainer>().energyCapacity }
         //choose near creeps as target, when they can take half of what we store and are not too far away
-        val creepTargets = room.find(FIND_CREEPS).filter { c -> c.my && c.memory.role != Role.HARVESTER && c.carryCapacity - c.carry.energy >= carry.energy/3  && c.pos.getRangeTo(pos) < (c.carryCapacity - c.carry.energy) / 2 }
+        val creepTargets = room.find(FIND_CREEPS).filter { c -> c.my && c.memory.role != Role.HARVESTER && c.freeStorage() >= carry.energy/3  && c.pos.getRangeTo(pos) < c.freeStorage() / 2 }
         val closest: RoomObject? = pos.findClosestByPath<RoomObject>((targets + creepTargets).map { a -> a as RoomObject }.toTypedArray())
         if (closest != null) {
             if (closest is Creep) {
                 say("toCreep")
-                if (transfer(closest, RESOURCE_ENERGY, min(carryCapacity-carry.energy,closest.carryCapacity-closest.carry.energy)) == ERR_NOT_IN_RANGE)
+                if (transferEnergy(closest) == ERR_NOT_IN_RANGE)
                     moveTo(closest.pos)
             }
             if (closest is Structure) {

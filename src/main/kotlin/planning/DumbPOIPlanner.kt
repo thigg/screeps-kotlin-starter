@@ -3,6 +3,7 @@ package planning
 import MyGameConstants.RCLConstants
 import planning.building.DumbStreetBuilder
 import screeps.api.*
+import screeps.api.structures.StructureExtension
 import screeps.api.structures.StructureSpawn
 
 enum class DumbPOIType {
@@ -21,6 +22,7 @@ object DumbPOIPlanner {
         room.controller?.run {
             pois += listOf(DumbPOI(DumbPOIType.SINK, pos, this))
         }
+        room.find(FIND_MY_CONSTRUCTION_SITES, options { filter={t->t.structureType == STRUCTURE_EXTENSION} }).map { s -> DumbPOI(DumbPOIType.STORE, s.pos, s) }
         return pois
     }
 
@@ -58,8 +60,8 @@ object DumbPOIPlanner {
             for (dx in -3..3) for (dy in -3..3)
                 //no buildings
                 if (room.lookAt(p.pos.x + dx, p.pos.y + dy).filter { t ->
-                            !(t.type == LOOK_CONSTRUCTION_SITES || t.type == LOOK_STRUCTURES)
-                        }.size != null)
+                            t.type == LOOK_CONSTRUCTION_SITES || t.type == LOOK_STRUCTURES
+                        }.size == 0)
                     //swamp
                     if (room.lookAt(p.pos.x + dx, p.pos.y + dy).filter { t -> t.type == LOOK_TERRAIN && t.terrain == TERRAIN_SWAMP }.size > 0)
                         preffered += room.getPositionAt(p.pos.x + dx, p.pos.y + dy)!!
@@ -67,7 +69,8 @@ object DumbPOIPlanner {
         preffered = preffered.filter { p -> room.findPath(p, room.controller!!.pos).isNotEmpty() }
         console.log("Found ${preffered.size} locations for an extension")
         //preffered.sortedBy { p-> room. }
-        preffered[0].createConstructionSite(STRUCTURE_EXTENSION)
-        console.log("Created Construction Site!!")
+        val ret = preffered[0].createConstructionSite(STRUCTURE_EXTENSION)
+        if(ret == OK)console.log("Created Construction Site on ${preffered[0]}!!")
+        else console.log("Got return code $ret while creating extension at ${preffered[0]}")
     }
 }
