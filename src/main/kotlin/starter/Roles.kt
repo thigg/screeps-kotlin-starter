@@ -12,17 +12,64 @@ enum class Role {
 }
 
 fun Creep.upgrade(controller: StructureController) {
-    if (carry.energy == 0) {
-        val sources = room.find(FIND_SOURCES)
-        if (harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-            moveTo(sources[0].pos)
-        }
+    energFSM()
+    if (memory.refillEnergy) {
+        goForEnergy()
     } else {
-        if (upgradeController(controller) == ERR_NOT_IN_RANGE) {
+        if (pos.inRangeTo(controller.pos, 2))
+            upgradeController(controller)
+        else
             moveTo(controller.pos)
+    }
+}
+
+private fun Creep.energFSM() {
+    if (carry.energy == carryCapacity)
+        memory.refillEnergy = false
+    if (carry.energy == 0) memory.refillEnergy = true
+}
+
+private fun Creep.goForEnergy() {
+    getClosestEnergySource()
+    val target = memory.move.target
+    if (target != null)
+        if (target.getRangeTo(pos) > 1)
+            moveTo(target)
+        else
+            getEnergyFrom(target)
+}
+
+fun Creep.getEnergyFrom(target: RoomPosition) {
+    target.look().forEach { e ->
+        when (e.type) {
+            LOOK_STRUCTURES -> {
+                this.withdraw(e.structure!!, RESOURCE_ENERGY); return
+            }
+            LOOK_ENERGY -> {
+                this.pickup(e.resource!!); return
+            }
+            LOOK_SOURCES -> {
+                e.resource.let { a -> if (a is Source) harvest(a) };return
+            }
         }
     }
 }
+
+fun Creep.getClosestEnergySource() {
+    val targets: Array<RoomObject> = (room.find(FIND_SOURCES) +
+            room.find(FIND_DROPPED_RESOURCES) +
+            room.find(FIND_STRUCTURES).filter { s ->
+                when (s.structureType) {
+                    STRUCTURE_CONTAINER, STRUCTURE_STORAGE -> true
+                    else -> false
+                }
+            }).map { a -> a as RoomObject }.toTypedArray()
+    val target: RoomObject? = pos.findClosestByPath<RoomObject>(targets)
+    if(target == null) return
+    memory.move.target = target.pos
+    memory.move.lastUpd = Game.time
+}
+
 
 fun Creep.pause() {
     if (memory.pause < 10) {
@@ -36,16 +83,9 @@ fun Creep.pause() {
 }
 
 fun Creep.build(assignedRoom: Room = this.room) {
-    if (memory.building && carry.energy == 0) {
-        memory.building = false
-        say("🔄 harvest")
-    }
-    if (!memory.building && carry.energy == carryCapacity) {
-        memory.building = true
-        say("🚧 build")
-    }
+   energFSM()
 
-    if (memory.building) {
+    if (!memory.refillEnergy) {
         val targets = assignedRoom.find(FIND_MY_CONSTRUCTION_SITES)
         if (targets.isNotEmpty()) {
             if (build(targets[0]) == ERR_NOT_IN_RANGE) {
@@ -53,20 +93,21 @@ fun Creep.build(assignedRoom: Room = this.room) {
             }
         }
     } else {
-        val sources = room.find(FIND_SOURCES)
-        if (harvest(sources[0]) == ERR_NOT_IN_RANGE) {
-            moveTo(sources[0].pos)
-        }
+        goForEnergy()
     }
 }
 
-fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room) {
+fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room): Unit {
     if (carry.energy < carryCapacity) {
-        val sources = fromRoom.find(FIND_SOURCES)
-        if(pos.inRangeTo(sources[0].pos,1))
-            harvest(sources[0])
-        else
-            moveTo(sources[0].pos)
+        val res = pos.findInRange(FIND_SOURCES, 1)
+        if (res.isNotEmpty())
+            harvest(res[0])
+        else {
+            val closest = pos.findClosestByPath(FIND_SOURCES)
+            if (closest != null)
+                moveTo(closest)
+        }
+
 
     } else {
         val targets = toRoom.find(FIND_MY_STRUCTURES)

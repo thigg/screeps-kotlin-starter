@@ -1,8 +1,10 @@
 package starter
 
 
+import planning.Planner
 import screeps.api.*
 import screeps.api.structures.StructureSpawn
+import screeps.utils.asSequence
 import screeps.utils.isEmpty
 import screeps.utils.unsafe.delete
 import screeps.utils.unsafe.jsObject
@@ -18,20 +20,8 @@ fun gameLoop() {
     //make sure we have at least some creeps
     Tasker.addTask(TaskerTask("spawnCreeps", 1.0) { spawnCreeps(Game.creeps.values, mainSpawn) })
 
-    Tasker.addTask(TaskerTask("buildExtensions", 10.0) {
-        // build a few extensions so we can have 550 energy
-        val controller = mainSpawn.room.controller
-        if (controller != null && controller.level >= 2) {
-            when (controller.room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_EXTENSION }) {
-                0 -> controller.room.createConstructionSite(29, 27, STRUCTURE_EXTENSION)
-                1 -> controller.room.createConstructionSite(28, 27, STRUCTURE_EXTENSION)
-                2 -> controller.room.createConstructionSite(27, 27, STRUCTURE_EXTENSION)
-                3 -> controller.room.createConstructionSite(26, 27, STRUCTURE_EXTENSION)
-                4 -> controller.room.createConstructionSite(25, 27, STRUCTURE_EXTENSION)
-                5 -> controller.room.createConstructionSite(24, 27, STRUCTURE_EXTENSION)
-                6 -> controller.room.createConstructionSite(23, 27, STRUCTURE_EXTENSION)
-            }
-        }
+    Tasker.addTask(TaskerTask("planner", 10.0) {
+       Planner.run(Game.spawns["Spawn1"]!!.room)
     })
 
     Tasker.addTask(TaskerTask("spawnBigCreeps", 15.0) {
@@ -80,20 +70,23 @@ private fun spawnCreeps(
 
     val body = arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
 
-    if (spawn.room.energyAvailable < body.sumBy { BODYPART_COST[it]!! }) {
-        return
-    }
-
     val role: Role = when {
         creeps.count { it.memory.role == Role.HARVESTER } < 2 -> Role.HARVESTER
 
         creeps.none { it.memory.role == Role.UPGRADER } -> Role.UPGRADER
 
         spawn.room.find(FIND_MY_CONSTRUCTION_SITES).isNotEmpty() &&
-                creeps.count { it.memory.role == Role.HARVESTER } < 2 -> Role.BUILDER
+                creeps.count { it.memory.role == Role.BUILDER } < 2 -> Role.BUILDER
 
         else -> return
     }
+    RoomVisual(spawn.room.name).text("Next: ${role.name}", spawn.pos.x, spawn.pos.y+1);
+
+    if (spawn.room.energyAvailable < body.sumBy { BODYPART_COST[it]!! }) {
+        return
+    }
+
+
 
     val newName = "${role.name}_${Game.time}"
     val code = spawn.spawnCreep(body, newName, options {
