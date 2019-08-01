@@ -4,6 +4,7 @@ import screeps.api.*
 import screeps.api.structures.Structure
 import screeps.api.structures.StructureController
 import screeps.api.structures.StructureSpawn
+import kotlin.math.min
 
 
 enum class Role {
@@ -51,8 +52,11 @@ fun Creep.getEnergyFrom(target: RoomPosition) {
                 if (this.withdraw(e.structure!!, RESOURCE_ENERGY) == OK) return
             }
             LOOK_ENERGY -> {
-                if (e.resource != null && this.pickup(e.resource!!) == OK) return
-                else console.log("NPE while ${this.name} while trying to pickup $target (${e.resource})")
+                if (e.resource != null) {
+                    val ret = this.pickup(target.lookFor(LOOK_ENERGY)!![0])
+                    if (ret == OK) return
+                    else console.log("Pickup returned $ret)")
+                }
             }
             LOOK_SOURCES -> {
                 try {
@@ -129,12 +133,12 @@ fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room): Unit {
                 .filter { (it.structureType == STRUCTURE_EXTENSION || it.structureType == STRUCTURE_SPAWN) }
                 .filter { it.unsafeCast<EnergyContainer>().energy < it.unsafeCast<EnergyContainer>().energyCapacity }
         //choose near creeps as target, when they can take half of what we store and are not too far away
-        val creepTargets = room.find(FIND_CREEPS).filter { c -> c.my && c.memory.role != Role.HARVESTER && c.carryCapacity-c.carry.energy <= carry.energy/2 && c.pos.getRangeTo(pos) < (c.carryCapacity - c.carry.energy) / 2 }
+        val creepTargets = room.find(FIND_CREEPS).filter { c -> c.my && c.memory.role != Role.HARVESTER && c.carryCapacity - c.carry.energy >= carry.energy/3  && c.pos.getRangeTo(pos) < (c.carryCapacity - c.carry.energy) / 2 }
         val closest: RoomObject? = pos.findClosestByPath<RoomObject>((targets + creepTargets).map { a -> a as RoomObject }.toTypedArray())
         if (closest != null) {
             if (closest is Creep) {
                 say("toCreep")
-                if (transfer(closest, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
+                if (transfer(closest, RESOURCE_ENERGY, min(carryCapacity-carry.energy,closest.carryCapacity-closest.carry.energy)) == ERR_NOT_IN_RANGE)
                     moveTo(closest.pos)
             }
             if (closest is Structure) {
@@ -142,7 +146,7 @@ fun Creep.harvest(fromRoom: Room = this.room, toRoom: Room = this.room): Unit {
                 if (transfer(closest, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE)
                     moveTo(closest.pos)
             }
-        }else {
+        } else {
             say(":(")
             console.log("Found no target from ${creepTargets.size} Creeps and ${targets.size} Structures = ${(targets + creepTargets).size}")
         }
