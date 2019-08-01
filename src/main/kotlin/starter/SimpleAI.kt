@@ -21,7 +21,7 @@ fun gameLoop() {
     Tasker.addTask(TaskerTask("spawnCreeps", 1.0) { spawnCreeps(Game.creeps.values, mainSpawn) })
 
     Tasker.addTask(TaskerTask("planner", 10.0) {
-       Planner.run(Game.spawns["Spawn1"]!!.room)
+        Planner.run(Game.spawns["Spawn1"]!!.room)
     })
 
     Tasker.addTask(TaskerTask("spawnBigCreeps", 15.0) {
@@ -68,8 +68,6 @@ private fun spawnCreeps(
         spawn: StructureSpawn
 ) {
 
-    val body = arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
-
     val role: Role = when {
         creeps.count { it.memory.role == Role.HARVESTER } < 2 -> Role.HARVESTER
 
@@ -80,12 +78,20 @@ private fun spawnCreeps(
 
         else -> return
     }
-    RoomVisual(spawn.room.name).text("Next: ${role.name}", spawn.pos.x, spawn.pos.y+1);
+    RoomVisual(spawn.room.name).text("Next: ${role.name}", spawn.pos.x, spawn.pos.y + 1);
+
+    val body = when (role) {
+        Role.BUILDER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(WORK,  CARRY, CARRY, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.UNASSIGNED -> arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.HARVESTER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(WORK, WORK, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.UPGRADER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(WORK, WORK, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.TRANSPORTER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(CARRY, CARRY, CARRY, MOVE, MOVE, MOVE) else arrayOf<BodyPartConstant>(CARRY, CARRY, MOVE)
+    }
+
 
     if (spawn.room.energyAvailable < body.sumBy { BODYPART_COST[it]!! }) {
         return
     }
-
 
 
     val newName = "${role.name}_${Game.time}"
