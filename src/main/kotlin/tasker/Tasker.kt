@@ -23,9 +23,11 @@ object Tasker {
         taskList = taskList.drop(1)
         val started = Game.cpu.getUsed()
         //console.log("Running Task ${tasktorun.name} with prio ${tasktorun.prio} which was waiting for ${Game.time-tasktorun.added} @ ${Game.cpu.getUsed()}")
-
-        tasktorun.action()
-
+        try {
+            tasktorun.action()
+        }catch(e:Exception){
+            console.log("Exception in task ${tasktorun.name}: $e")
+        }
 
         val took = Game.cpu.getUsed() - started
         if (took > 2) console.log("Task ${tasktorun.name} took ${took}cputime ")

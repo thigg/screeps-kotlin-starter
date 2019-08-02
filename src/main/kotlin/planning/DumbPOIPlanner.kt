@@ -1,8 +1,11 @@
 package planning
 
+import Monkeys.isFreeForBuilding
 import MyGameConstants.RCLConstants
 import planning.building.DumbStreetBuilder
 import screeps.api.*
+import screeps.api.structures.Structure
+import screeps.api.structures.StructureContainer
 import screeps.api.structures.StructureExtension
 import screeps.api.structures.StructureSpawn
 
@@ -18,7 +21,9 @@ object DumbPOIPlanner {
 
     fun getPOIs(room: Room): List<DumbPOI> {
         var pois = room.find(FIND_SOURCES).map { s: Source -> DumbPOI(DumbPOIType.SOURCE, s.pos, s) } +
-                room.find(FIND_MY_SPAWNS).map { s: StructureSpawn -> DumbPOI(DumbPOIType.STORE, s.pos, s) }
+                room.find(FIND_MY_SPAWNS).map { s: StructureSpawn -> DumbPOI(DumbPOIType.STORE, s.pos, s) } +
+                room.find(FIND_MY_STRUCTURES).filter { it is StructureExtension || it is StructureContainer }.
+                        map { s: Structure -> DumbPOI(DumbPOIType.STORE, s.pos, s) }
         room.controller?.run {
             pois += listOf(DumbPOI(DumbPOIType.SINK, pos, this))
         }
@@ -40,9 +45,11 @@ object DumbPOIPlanner {
         val sinks = pois.filter { a -> a.type == DumbPOIType.SINK }
         val projects = sources.map { src -> connectToClosest(src, stores, room) } +
                 sinks.map { sink -> connectToClosest(sink, sources + stores, room) }
-        console.log("${projects.size} Road planning projects")
 
         val withStreetCosts = projects.map { p: StreetProject -> Pair(p, p.path.sumBy { a -> if (room.lookForAt(LOOK_STRUCTURES, a.x, a.y)!!.isEmpty()) 1 else 0 }) }.filter { p -> p.second != 0 }
+
+        console.log("${withStreetCosts.size} Road planning projects")
+
 
         if (withStreetCosts.isNotEmpty())
             withStreetCosts[0].first.run {
@@ -52,10 +59,18 @@ object DumbPOIPlanner {
     }
 
     fun planEnergyStores(room: Room) {
-        if (room.controller!!.level <= 2) return
-        if (room.find(FIND_MY_CONSTRUCTION_SITES, options { filter = { c -> c.structureType == STRUCTURE_EXTENSION } }).size > 0) return
-        if (room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_EXTENSION } == RCLConstants.extensions_allowed[room.controller!!.level]) return
-        //else if (room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_CONTAINER } < room.find(FIND_SOURCES).size) plantContainersToSources()
+        if (room.controller!!.level <= 1) {
+            console.log("Not enough rcl for extensions")
+            return
+        }
+        if (room.find(FIND_MY_CONSTRUCTION_SITES, options { filter = { c -> c.structureType == STRUCTURE_EXTENSION } }).size > 0) {
+            console.log("Extension already under construction")
+            return
+        }
+        if (room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_EXTENSION } == RCLConstants.extensions_allowed[room.controller!!.level]) {
+            console.log("Extension limit reached")
+            return
+        } else if (room.find(FIND_MY_STRUCTURES).count { it.structureType == STRUCTURE_CONTAINER } < room.find(FIND_SOURCES).size) plantContainersToSources(room)
         val pois = getPOIs(room)
         val stores = pois.filter { a -> a.type == DumbPOIType.STORE }
         var preffered: List<RoomPosition> = listOf()
@@ -77,27 +92,27 @@ object DumbPOIPlanner {
         else console.log("Got return code $ret while creating extension at ${preffered[0]}")
     }
 
-    private fun isFreeForBuilding(pos: RoomPosition, room: Room): Boolean {
-        return room.lookAt(pos.x, pos.y).filter { t ->
-            t.type == LOOK_CONSTRUCTION_SITES || t.type == LOOK_STRUCTURES || (t.type == LOOK_TERRAIN && t.terrain == TERRAIN_WALL)
-        }.isEmpty()
-    }
 
-    /*private fun plantContainersToSources(room: Room) {
-        val stores = getPOIs(room).filter { a -> a.type == DumbPOIType.STORE }//, options { filter = { it.structureType == STRUCTURE_CONTAINER }
-        val targets = room.find(FIND_SOURCES).filter { it.pos.findInRange(FIND_MY_CONSTRUCTION_SITES or FIND_MY_STRUCTURES, 4 ).isEmpty() }
+    private fun plantContainersToSources(room: Room) {
+        val stores = getPOIs(room).filter { a -> a.type == DumbPOIType.STORE }//
+        val my_stuff:Array<RoomObject> = room.find(FIND_MY_CONSTRUCTION_SITES, options {
+            filter = { it.structureType == STRUCTURE_CONTAINER }
+        }) + room.find(FIND_MY_STRUCTURES, options {
+            filter = { it.structureType == STRUCTURE_CONTAINER }
+        })
+        val targets = room.find(FIND_SOURCES).filter { it.pos.findInRange(my_stuff, 4).isEmpty() }
         targets.forEach { it ->
             connectToClosest(DumbPOI(DumbPOIType.SOURCE, it.pos, it), stores, room).path.find {
                 val pos = room.getPositionAt(it.x, it.y)!! + it.direction.turnLeft()
-                if (isFreeForBuilding(pos,room)){
+                if (pos.isFreeForBuilding(room)) {
                     pos.createConstructionSite(STRUCTURE_CONTAINER)
                     true
-                }
-                else false
+                } else false
             }
         }
-    }*/
+    }
 }
+
 
 fun DirectionConstant.getDelta(): RoomPositionDelta = when (this) {
     TOP -> RoomPositionDelta(0, -1)
@@ -107,7 +122,7 @@ fun DirectionConstant.getDelta(): RoomPositionDelta = when (this) {
     BOTTOM -> RoomPositionDelta(0, 1)
     BOTTOM_LEFT -> RoomPositionDelta(-1, 1)
     LEFT -> RoomPositionDelta(-1, 0)
-    TOP_LEFT ->  RoomPositionDelta(-1, -1)
+    TOP_LEFT -> RoomPositionDelta(-1, -1)
     else -> RoomPositionDelta(0, 0)
 }
 

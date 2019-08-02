@@ -1,8 +1,11 @@
 package AdminUtils
 
-import org.w3c.files.File
-import screeps.api.*
-import kotlin.test.*
+import screeps.api.Room
+import screeps.api.TERRAIN_WALL
+import screeps.api.get
+import screeps.api.size
+import kotlin.test.Test
+import kotlin.test.assertTrue
 
 internal class TestDumperTest {
 
@@ -11,7 +14,7 @@ internal class TestDumperTest {
     """.trimIndent()
 
     @Test
-    fun dumpRoom(room:Room) {
+    fun dumpRoom() {
         val res = JSON.parse<LookAtAreaResult>(roomstring)
         assertTrue { res.size > 0}
         assertTrue { res[0]!![0]!![0].terrain!!.equals(TERRAIN_WALL)}
