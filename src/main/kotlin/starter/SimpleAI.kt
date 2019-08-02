@@ -1,6 +1,7 @@
 package starter
 
 
+import org.w3c.fetch.Body
 import planning.Planner
 import screeps.api.*
 import screeps.api.structures.StructureSpawn
@@ -10,6 +11,8 @@ import screeps.utils.unsafe.delete
 import screeps.utils.unsafe.jsObject
 import tasker.Tasker
 import tasker.TaskerTask
+import kotlin.math.max
+import kotlin.math.min
 
 fun gameLoop() {
     val mainSpawn: StructureSpawn = Game.spawns.values.firstOrNull() ?: return
@@ -68,27 +71,36 @@ private fun spawnCreeps(
         spawn: StructureSpawn
 ) {
 
+    val rolecounts: Map<Role, Int> = Role.values().map { role -> role to creeps.count { it.memory.role == role } }.toMap()
     val role: Role = when {
-        creeps.count { it.memory.role == Role.HARVESTER } < 2 -> Role.HARVESTER
 
-        creeps.none { it.memory.role == Role.UPGRADER } -> Role.UPGRADER
+        rolecounts.get(Role.HARVESTER)!! < spawn.room.find(FIND_SOURCES).size -> Role.HARVESTER
+
+        rolecounts[Role.UPGRADER] == 0 -> Role.UPGRADER
 
         spawn.room.find(FIND_MY_CONSTRUCTION_SITES).isNotEmpty() &&
-                creeps.count { it.memory.role == Role.BUILDER } < 2 -> Role.BUILDER
+                rolecounts[Role.BUILDER]!! < 2 -> Role.BUILDER
+        //fill up harvester
+        creeps.sumBy { if (it.memory.role == Role.HARVESTER) it.body.count { it == WORK } else 0 } < spawn.room.find(FIND_SOURCES).size * 5 -> Role.HARVESTER
 
         else -> return
     }
     RoomVisual(spawn.room.name).text("Next: ${role.name}", spawn.pos.x, spawn.pos.y + 1);
 
-    val body = when (role) {
-        Role.BUILDER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(WORK,  CARRY, CARRY, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+    val body: Array<BodyPartConstant> = when (role) {
+        Role.BUILDER -> if (spawn.room.energyAvailable >= 300) arrayOf<BodyPartConstant>(WORK, CARRY, CARRY, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
         Role.UNASSIGNED -> arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
-        Role.HARVESTER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(WORK, WORK, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
-        Role.UPGRADER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(WORK, WORK, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
-        Role.TRANSPORTER -> if (spawn.energy == 300) arrayOf<BodyPartConstant>(CARRY, CARRY, CARRY, MOVE, MOVE, MOVE) else arrayOf<BodyPartConstant>(CARRY, CARRY, MOVE)
-    }
+        Role.HARVESTER -> if (spawn.room.energyAvailable >= 300 || rolecounts[Role.HARVESTER]!! >= 2) {
+            //max 5 work parts, but if we have already two harvesters, build the biggest possible!
+            if (min(600, spawn.room.energyCapacityAvailable - (spawn.room.energyCapacityAvailable % 100)) <= spawn.room.energyAvailable)
+                Array(min(5, spawn.room.energyCapacityAvailable / 100 - 1)) { WORK } + arrayOf(CARRY, MOVE)
+            else arrayOf()
+        } else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.UPGRADER -> if (spawn.room.energyAvailable >= 300) Array(min(5, spawn.room.energyAvailable / 100 - 1)) { WORK } + arrayOf(CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.TRANSPORTER -> if (spawn.room.energyAvailable >= 300) arrayOf<BodyPartConstant>(CARRY, CARRY, CARRY, MOVE, MOVE, MOVE) else arrayOf<BodyPartConstant>(CARRY, CARRY, MOVE)
+    } as Array<BodyPartConstant>
 
-
+    if (body.isEmpty()) return
     if (spawn.room.energyAvailable < body.sumBy { BODYPART_COST[it]!! }) {
         return
     }
