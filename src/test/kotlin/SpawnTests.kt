@@ -3,6 +3,7 @@ import starter.Role
 import starter.planScreepBody
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 
 internal class SpawnTests {
@@ -26,6 +27,6 @@ for (key in _toglob) {
     }
 
     fun compare(a1: Array<BodyPartConstant>,a2:Array<BodyPartConstant>){
-        assertEquals(a1.size, a2.size)
+        assertTrue(a1.contentDeepEquals(a2))
     }
 }
