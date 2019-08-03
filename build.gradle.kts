@@ -14,10 +14,26 @@ repositories {
 }
 
 dependencies {
-    implementation("ch.delconte.screeps-kotlin:screeps-kotlin-types:1.3.0")
+    implementation("ch.delconte.screeps-kotlin:screeps-kotlin-types:1.5.0")
     implementation(kotlin("stdlib-js"))
     testImplementation(kotlin("test-js"))
 }
+kotlin {
+    target {
+        useCommonJs()
+        nodejs()
+    }
+
+    sourceSets["main"].dependencies {
+        implementation(kotlin("stdlib-js"))
+    }
+    sourceSets["test"].dependencies{
+        this.runtimeOnly(npm("@screeps/common"))
+        //runtime(files("@screeps/common/lib/constants.js"))
+    }
+}
+
+
 
 val screepsUser: String? by project
 val screepsPassword: String? by project
@@ -32,16 +48,15 @@ fun String.encodeBase64() = Base64.getEncoder().encodeToString(this.toByteArray(
 tasks {
     "compileKotlinJs"(Kotlin2JsCompile::class) {
         kotlinOptions {
-            moduleKind = "commonjs"
-            outputFile = "${buildDir}/screeps/main.js"
+      //     outputFile = "${buildDir}/screeps/main.js"
             sourceMap = true
             metaInfo = true
         }
     }
 
-    "runDceKotlin"(KotlinJsDce::class) {
+   "runDceKotlin"(KotlinJsDce::class) {
         keep("main.loop")
-        dceOptions.devMode = false
+        dceOptions.devMode = true
     }
 
     register<RestTask>("deploy") {
@@ -76,3 +91,5 @@ tasks {
     }
 }
 
+
+val kotlinSourcesJar by tasks

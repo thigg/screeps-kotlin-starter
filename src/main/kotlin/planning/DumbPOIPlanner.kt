@@ -22,8 +22,7 @@ object DumbPOIPlanner {
     fun getPOIs(room: Room): List<DumbPOI> {
         var pois = room.find(FIND_SOURCES).map { s: Source -> DumbPOI(DumbPOIType.SOURCE, s.pos, s) } +
                 room.find(FIND_MY_SPAWNS).map { s: StructureSpawn -> DumbPOI(DumbPOIType.STORE, s.pos, s) } +
-                room.find(FIND_MY_STRUCTURES).filter { it is StructureExtension || it is StructureContainer }.
-                        map { s: Structure -> DumbPOI(DumbPOIType.STORE, s.pos, s) }
+                room.find(FIND_MY_STRUCTURES).filter { it is StructureExtension || it is StructureContainer }.map { s: Structure -> DumbPOI(DumbPOIType.STORE, s.pos, s) }
         room.controller?.run {
             pois += listOf(DumbPOI(DumbPOIType.SINK, pos, this))
         }
@@ -44,7 +43,8 @@ object DumbPOIPlanner {
         val stores = pois.filter { a -> a.type == DumbPOIType.STORE }
         val sinks = pois.filter { a -> a.type == DumbPOIType.SINK }
         val projects = sources.map { src -> connectToClosest(src, stores, room) } +
-                sinks.map { sink -> connectToClosest(sink, sources + stores, room) }
+                sinks.map { sink -> connectToClosest(sink, sources + stores, room) } +
+                stores.map { connectToClosest(it, sources, room) }
 
         val withStreetCosts = projects.map { p: StreetProject -> Pair(p, p.path.sumBy { a -> if (room.lookForAt(LOOK_STRUCTURES, a.x, a.y)!!.isEmpty()) 1 else 0 }) }.filter { p -> p.second != 0 }
 
@@ -95,7 +95,7 @@ object DumbPOIPlanner {
 
     private fun plantContainersToSources(room: Room) {
         val stores = getPOIs(room).filter { a -> a.type == DumbPOIType.STORE }//
-        val my_stuff:Array<RoomObject> = room.find(FIND_MY_CONSTRUCTION_SITES, options {
+        val my_stuff: Array<RoomObject> = room.find(FIND_MY_CONSTRUCTION_SITES, options {
             filter = { it.structureType == STRUCTURE_CONTAINER }
         }) + room.find(FIND_MY_STRUCTURES, options {
             filter = { it.structureType == STRUCTURE_CONTAINER }

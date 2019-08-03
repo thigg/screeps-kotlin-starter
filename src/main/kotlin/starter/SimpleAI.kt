@@ -69,7 +69,14 @@ private fun spawnCreeps(
 
         rolecounts[Role.UPGRADER]!! < 2 -> Role.UPGRADER
 
-        else -> return
+        else -> {//kill weak creeps HAHAHAHHA
+            if(spawn.room.energyAvailable <= 300)return
+            val assaultable = spawn.room.find(FIND_CREEPS, options { filter= {it.body.size == 3} })
+            if(assaultable.isEmpty()) return
+            assaultable[0].suicide()
+            return
+
+        }
     }
     RoomVisual(spawn.room.name).text("Next: ${role.name}", spawn.pos.x.toDouble(), (spawn.pos.y + 1).toDouble());
 
@@ -98,7 +105,7 @@ private fun spawnCreeps(
 fun planScreepBody(role: Role, eAV: Int, eCap: Int, rolecounts: Map<Role, Int>): Array<BodyPartConstant> {
     return when (role) {
         Role.BUILDER -> if (eAV >= 300) arrayOf<BodyPartConstant>(WORK, CARRY, CARRY, CARRY, MOVE) else arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
-        Role.UNASSIGNED -> arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
+        Role.UNASSIGNED -> arrayOf<BodyPartConstant>()
         Role.HARVESTER ->
             if (rolecounts[Role.HARVESTER]!! < 2) arrayOf<BodyPartConstant>(WORK, CARRY, MOVE)
             else if (eAV >= 300 || rolecounts[Role.HARVESTER]!! >= 2) {

@@ -6,13 +6,26 @@ import kotlin.test.assertEquals
 
 
 internal class SpawnTests {
-/*
-    @Test
-    fun bodyPartTest(){
-        assertEquals(arrayOf(WORK,WORK,CARRY, MOVE) as Array<BodyPartConstant>,planScreepBody(Role.HARVESTER,300,300,mapOf(Role.HARVESTER to 2)))
-        assertEquals(arrayOf(WORK,WORK,CARRY, MOVE) as Array<BodyPartConstant>,planScreepBody(Role.HARVESTER,300,350,mapOf(Role.HARVESTER to 2)))
-        assertEquals(Array<BodyPartConstant>(0){ WORK},planScreepBody(Role.HARVESTER,300,400,mapOf(Role.HARVESTER to 2)))
-        assertEquals(arrayOf(WORK,WORK,WORK,CARRY, MOVE) as Array<BodyPartConstant>,planScreepBody(Role.HARVESTER,400,400,mapOf(Role.HARVESTER to 2)))
 
-    }*/
+    @Test
+    fun bodyPartTest() {
+        js("""
+var _toglob = require('@screeps/common/lib/constants.js');
+var key;
+for (key in _toglob) {
+  if (_toglob.hasOwnProperty(key)) {
+    global[key] = _toglob[key];
+  }
+}           
+        """)
+        compare(arrayOf(WORK, WORK, CARRY, MOVE) as Array<BodyPartConstant>,    planScreepBody(Role.HARVESTER, 300, 300, mapOf(Role.HARVESTER to 2)))
+        compare(arrayOf(WORK, WORK, CARRY, MOVE) as Array<BodyPartConstant>, planScreepBody(Role.HARVESTER, 300, 350, mapOf(Role.HARVESTER to 2)))
+        compare(Array<BodyPartConstant>(0) { WORK }, planScreepBody(Role.HARVESTER, 300, 400, mapOf(Role.HARVESTER to 2)))
+        compare(arrayOf(WORK, WORK, WORK, CARRY, MOVE) as Array<BodyPartConstant>, planScreepBody(Role.HARVESTER, 400, 400, mapOf(Role.HARVESTER to 2)))
+
+    }
+
+    fun compare(a1: Array<BodyPartConstant>,a2:Array<BodyPartConstant>){
+        assertEquals(a1.size, a2.size)
+    }
 }
